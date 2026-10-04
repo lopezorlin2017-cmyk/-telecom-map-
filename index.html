@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090b10">
+<title>Telecom Map</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#090b10;color:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial,sans-serif}
+header{padding:18px 16px 10px;display:flex;justify-content:space-between;align-items:center}
+h1{font-size:22px;margin:0}.sub{color:#8e96a3;font-size:12px;margin-top:3px}
+button{border:0;border-radius:12px;padding:11px 14px;background:#1b2029;color:#fff;font-weight:600}
+main{padding:0 12px 24px}.card{background:#12161d;border:1px solid #202632;border-radius:18px;margin:10px 0;padding:14px}
+#map{height:48vh;min-height:310px;border-radius:16px;background:#171c24;overflow:hidden;position:relative}
+#map iframe{width:100%;height:100%;border:0;filter:brightness(.82) saturate(.85)}
+.marker{position:absolute;left:50%;top:50%;transform:translate(-50%,-100%);background:#ff453a;border:3px solid white;width:20px;height:20px;border-radius:50%;box-shadow:0 2px 10px #000}
+.controls{display:flex;gap:8px;overflow:auto}.controls input{background:#171c24;border:1px solid #29303b;color:#fff;border-radius:12px;padding:11px;min-width:120px}
+.row{display:flex;gap:10px;justify-content:space-between;padding:7px 0;border-bottom:1px solid #202632;font-size:13px}.row:last-child{border-bottom:0}.label{color:#8e96a3;min-width:100px}.value{word-break:break-all;text-align:right}
+.timeline button{width:100%;text-align:left;margin:5px 0}.empty{color:#8e96a3;padding:15px 0}
+.small{font-size:11px;color:#8e96a3;line-height:1.45}
+</style>
+</head>
+<body>
+<header>
+<div><h1>Telecom Map</h1><div class="sub">Analizador de registros autorizados</div></div>
+<button onclick="document.getElementById('file').click()">Importar</button>
+<input id="file" type="file" accept=".json,.csv" hidden>
+</header>
+<main>
+<div class="card">
+<div class="controls">
+<input id="search" placeholder="Buscar IMEI/IMSI..." oninput="render()">
+<input id="date" placeholder="Fecha..." oninput="render()">
+</div>
+</div>
+<div class="card" style="padding:8px"><div id="map">
+<div class="marker" title="Registro"></div>
+</div></div>
+<div id="detail" class="card"></div>
+<div class="card timeline"><b>Línea de tiempo</b><div id="list"></div></div>
+<div class="card small">La aplicación visualiza únicamente las coordenadas contenidas en los registros importados. No obtiene datos de operadores ni calcula la ubicación de una persona.</div>
+</main>
+<script>
+let records=[{
+target:"50431462486",imsi:"708001187330754",imei:"864414071909060",
+lacCellId:"708-001-16651-12710657",latitude:15.853322,longitude:-87.947332,
+address:"Cortés, Puerto Cortés, San Isidro",dateTime:"19-09-2026 08:45:29"
+}];
+let selected=0;
+
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function detail(r){
+return `<b>Registro seleccionado</b>
+<div class=row><span class=label>Objetivo</span><span class=value>${esc(r.target)}</span></div>
+<div class=row><span class=label>IMSI</span><span class=value>${esc(r.imsi)}</span></div>
+<div class=row><span class=label>IMEI</span><span class=value>${esc(r.imei)}</span></div>
+<div class=row><span class=label>LAC-CELLID</span><span class=value>${esc(r.lacCellId)}</span></div>
+<div class=row><span class=label>Coordenadas</span><span class=value>${esc(r.latitude)}, ${esc(r.longitude)}</span></div>
+<div class=row><span class=label>Fecha/hora</span><span class=value>${esc(r.dateTime)}</span></div>
+<div class=row><span class=label>Dirección</span><span class=value>${esc(r.address)}</span></div>`;
+}
+function render(){
+let q=document.getElementById('search').value.toLowerCase(),d=document.getElementById('date').value.toLowerCase();
+let filtered=records.filter(r=>JSON.stringify(r).toLowerCase().includes(q)&&(!d||r.dateTime.toLowerCase().includes(d)));
+let list=document.getElementById('list');
+list.innerHTML=filtered.length?filtered.map((r)=>`<button onclick="selectRecord('${r.id||records.indexOf(r)}')">📍 ${esc(r.dateTime)} — ${esc(r.address)}</button>`).join(""):`<div class=empty>No hay registros.</div>`;
+if(records[selected])document.getElementById('detail').innerHTML=detail(records[selected]);
+}
+function selectRecord(id){let i=records.findIndex(r=>String(r.id||records.indexOf(r))===String(id));if(i>=0){selected=i;render();}}
+document.getElementById('file').onchange=async e=>{
+let f=e.target.files[0];if(!f)return;
+let text=await f.text();
+try{
+ if(f.name.toLowerCase().endsWith(".json")){let x=JSON.parse(text);records=Array.isArray(x)?x:[x]}
+ else{
+  let lines=text.trim().split(/\r?\n/), heads=lines.shift().split(",").map(x=>x.trim());
+  records=lines.map(line=>{let v=line.split(",");let o={};heads.forEach((h,i)=>o[h]=v[i]??"");return o})
+ }
+ selected=0;render();
+}catch(err){alert("No se pudo interpretar el archivo.")}
+};
+render();
+</script>
+</body>
+</html>
